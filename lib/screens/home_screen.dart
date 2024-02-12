@@ -16,6 +16,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   static final GlobalKey<FormState> globalKey = GlobalKey<FormState>();
   String meetingId = "";
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -29,49 +30,35 @@ class _HomeScreenState extends State<HomeScreen> {
         ));
   }
 
-  formUI() {
+  Widget formUI() {
     return Center(
         child: Padding(
       padding: EdgeInsets.all(20.0),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Text("welcome to the syndicate",
+          const Text("Welcome to the Syndicate",
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.black,
-                fontSize: 25,
-              )),
-          const SizedBox(
-            height: 20,
-          ),
+              style: TextStyle(color: Colors.black, fontSize: 25)),
+          const SizedBox(height: 20),
           FormHelper.inputFieldWidget(
             context,
             "meetingId",
             "Enter your Meeting Id",
-            (val) {
-              if (val.isEmpty) {
-                return "Meeting Id can't be empty";
-              }
-              return null;
-            },
-            (onSaved) {
-              meetingId = onSaved;
-            },
+            (val) => val.isEmpty ? "Meeting Id can't be empty" : null,
+            (onSaved) => meetingId = onSaved,
             borderRadius: 10,
             borderFocusColor: Colors.redAccent,
             borderColor: Colors.redAccent,
             hintColor: Colors.grey,
           ),
-          const SizedBox(
-            height: 20,
-          ),
+          const SizedBox(height: 20),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
               Flexible(
                 child: FormHelper.submitButton(
-                  "join Meeting",
+                  "Join Meeting",
                   () {
                     if (validateAndSave()) {
                       validateMeeting(meetingId);
@@ -83,11 +70,20 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: FormHelper.submitButton(
                   "Start Meeting",
                   () async {
-                    var response = await startMeeting();
-                    final body = json.decode(response!.body);
-                    final meetId = body['data'];
-                    ;
-                    validateMeeting(meetId);
+                    try {
+                      var response = await startMeeting();
+                      if (response != null && response.statusCode == 200) {
+                        final body = json.decode(response.body);
+                        final meetId = body['data'][
+                            'meetingId']; // Ensure this matches the backend response structure
+                        validateMeeting(meetId);
+                      } else {
+                        // Handle non-200 responses or add error handling here
+                        print("Failed to start meeting: ${response?.body}");
+                      }
+                    } catch (err) {
+                      print("Error starting meeting: $err");
+                    }
                   },
                 ),
               )
@@ -100,22 +96,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void validateMeeting(String meetingId) async {
     try {
-      Response response = await joinMeeting(meetingId);
-      print("Network request status code: ${response.statusCode}"); // Debug response
-      if (response.statusCode == 200) {
-        var data = json.decode(response.body);
+      Response? response = await joinMeeting(meetingId);
+      if (response?.statusCode == 200) {
+        var data = json.decode(response!.body);
         final meetingDetails = MeetingDetail.fromJson(data["data"]);
         goToJoinScreen(meetingDetails);
       } else {
-        print("Failed to join meeting: ${response.body}");
-        // Handle failure case
+        // Implement user-friendly error handling
+        print("Failed to join meeting: ${response?.body}");
+        showErrorDialog("Failed to join meeting.");
       }
     } catch (err) {
-      print("Error occurred: $err"); // Log any errors
+      print("Error occurred: $err");
+      showErrorDialog("An error occurred: $err");
     }
   }
 
-  goToJoinScreen(MeetingDetail meetingDetail) {
+  void goToJoinScreen(MeetingDetail meetingDetail) {
     Navigator.pushReplacement(
       context,
       MaterialPageRoute(
@@ -127,9 +124,27 @@ class _HomeScreenState extends State<HomeScreen> {
   bool validateAndSave() {
     final form = globalKey.currentState;
     if (form != null && form.validate()) {
-      form.save(); // This calls the onSaved method on each form field
-      return true; // Indicates form is valid and data is saved
+      form.save();
+      return true;
     }
-    return false; // Indicates form is invalid
+    return false;
+  }
+
+  void showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("Error"),
+        content: Text(message),
+        actions: <Widget>[
+          TextButton(
+            child: Text("Ok"),
+            onPressed: () {
+              Navigator.of(ctx).pop();
+            },
+          ),
+        ],
+      ),
+    );
   }
 }

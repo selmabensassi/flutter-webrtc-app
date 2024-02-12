@@ -23,13 +23,30 @@ Future<http.Response?> startMeeting() async {
   }
 }
 
-Future<http.Response> joinMeeting(String meetingId) async {
-  var response =
-      await http.get(Uri.parse('$MEETING_API_URL/join?meetingId=$meetingId'));
+Future<http.Response?> joinMeeting(String meetingId) async {
+  final uri = Uri.parse('http://192.168.1.16:52390/joinMeeting')
+      .replace(queryParameters: {
+    'id': meetingId, // Ensure the 'id' parameter is correctly included
+  });
 
-  if (response.statusCode >= 200 && response.statusCode < 400) {
+  final response = await http.get(uri);
+
+  if (response.statusCode == 200) {
+    print("Successfully joined the meeting");
     return response;
+    
   } else {
-    throw Exception('Failed to join meeting: ${response.statusCode}');
+    print("Failed to join the meeting");
+    return null;
+   
   }
 }
+
+// Future<void> startOrJoinMeeting(String meetingId) async {
+//   final response = meetingId.isEmpty
+//       ? await startMeeting() // This should retrieve and return a meeting ID
+//       : await joinMeeting(meetingId);
+//   if (response != null && response.statusCode == 200) {
+//     final meetingDetails = jsonDecode(response.body);
+//   } else {}
+// }
